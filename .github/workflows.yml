@@ -1,0 +1,53 @@
+name: Pipeline
+run-name: Workflow run
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron:  "0 0-23/6 * * *"
+  workflow_dispatch:
+
+jobs:
+  Stitch:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository content
+      uses: actions/checkout@v3 # Checkout the repository content to github runner.
+    - name: Stitch
+      run: |
+        python stitch_cloud_post.py
+  DBT:
+    if: ${{ always() }}
+    needs: Stitch
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository content
+      uses: actions/checkout@v3 # Checkout the repository content to github runner.    
+    - name: install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install requests
+    - name: DBT
+      run: |
+        python dbt_cloud_check_status.py
+  PowerBI:
+    if: ${{ always() }}
+    needs: [Stitch,DBT]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository content
+      uses: actions/checkout@v3 # Checkout the repository content to github runner.
+    - name: install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install requests
+        python -m pip install msal
+    - name: Power Bi
+      run: |
+        python power_bi_api_dataset_refresh.py
