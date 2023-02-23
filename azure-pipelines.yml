@@ -1,0 +1,66 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+name: Pipeline
+trigger:
+  branches:
+    include:
+    - main
+
+schedules:
+- cron: "0 0-23/6 * * *"
+  displayName: Every 6 hours
+  branches:
+    include:
+    - main
+
+pr:
+  branches:
+    include:
+    - main
+
+stages:
+- stage: Stitch_Stage
+  pool:
+     vmImage: 'ubuntu-latest' 
+  jobs:
+    - job: Stitch
+      steps:
+      - script: 
+          python stitch_cloud_post.py
+
+- stage: DBT_Stage
+  pool:
+     vmImage: 'ubuntu-latest' 
+  dependsOn: 
+    - Stitch_Stage
+  condition: succeededOrFailed()
+  jobs:
+    - job: DBT
+      steps:
+      - script: |
+          python -m pip install --upgrade pip
+          pip install requests
+        displayName: Installing Dependencies
+      - script: |
+          python dbt_cloud_check_status.py
+
+- stage: PowerBi_Stage
+  pool:
+     vmImage: 'ubuntu-latest' 
+  dependsOn: [Stitch_Stage,DBT_Stage]
+  condition: succeededOrFailed()
+  jobs:
+    - job: PowerBi
+      steps:
+      - script: |
+          python -m pip install --upgrade pip
+          pip install requests
+          pip install msal
+        displayName: Installing Dependencies
+      - script: |
+          python power_bi_api_dataset_refresh.py
+
+          
